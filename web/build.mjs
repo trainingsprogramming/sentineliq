@@ -18,14 +18,14 @@ const htmlTemplate = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=1200">
     <title>SentinelIQ — Applied AI Engineering</title>
     <meta name="description" content="SentinelIQ: An enterprise-grade Applied AI Engineering system for NexaTel. Build RAG, LangGraph, and ingestion pipelines over telecom operational data.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Space+Grotesk:wght@400;700;900&family=Yellowtail&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"><\/script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 </head>
 <body>
     <div class="page-wrapper">
@@ -37,7 +37,6 @@ const htmlTemplate = `<!DOCTYPE html>
                     <span class="dot bg-yellow"></span>
                     <span class="dot bg-green"></span>
                 </div>
-                <button class="hamburger" id="hamburger-btn" aria-label="Open menu">&#9776;</button>
                 <div class="window-nav" id="main-nav">
                     <a href="#">Home</a>
                     <a href="#">About us</a>
@@ -139,37 +138,6 @@ const htmlTemplate = `<!DOCTYPE html>
         transform: translate(-2px, -2px);
         box-shadow: 5px 5px 0px var(--color-black);
         background: var(--color-green) !important;
-    }
-
-    /* ── Hamburger ── */
-    .hamburger {
-        display: none;
-        background: none;
-        border: 3px solid var(--color-black);
-        border-radius: 6px;
-        padding: 4px 10px;
-        font-size: 1.4rem;
-        cursor: pointer;
-        font-weight: 900;
-    }
-    @media (max-width: 767px) {
-        .hamburger { display: block; }
-        .window-nav {
-            display: none;
-            flex-direction: column;
-            gap: 10px;
-            position: absolute;
-            top: 62px;
-            left: 0;
-            right: 0;
-            background: var(--bg-window-header);
-            border-bottom: 4px solid var(--color-black);
-            padding: 20px;
-            z-index: 1000;
-        }
-        .window-nav.open { display: flex !important; }
-        .window-header { position: relative; flex-wrap: wrap; }
-        .btn-download { font-size: 0.78rem; padding: 5px 12px; }
     }
 
     /* ── Mermaid diagrams ── */
@@ -280,12 +248,6 @@ const htmlTemplate = `<!DOCTYPE html>
             }
         });
 
-        // ── Hamburger ──
-        const hamburgerBtn = document.getElementById('hamburger-btn');
-        const mainNav = document.getElementById('main-nav');
-        if (hamburgerBtn && mainNav) {
-            hamburgerBtn.addEventListener('click', () => mainNav.classList.toggle('open'));
-        }
 
         // ── Email suffix modal ──
         const modal = document.getElementById('login-modal');
