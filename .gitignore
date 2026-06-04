@@ -1,0 +1,23 @@
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Python caching
+__pycache__/
+*.py[cod]
+
+# IDEs
+.idea/
+.vscode/
+
+# Ignore the entire sentineliq folder (distributing it as a zip file via the web app instead)
+sentineliq/
+
+# Web package caches
+web/node_modules/
+web/dist/
+
+# OS specific files
+.DS_Store
+Thumbs.db
