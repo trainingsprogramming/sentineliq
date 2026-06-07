@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=1200">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>SentinelIQ — Applied AI Engineering</title>
     <meta name="description" content="SentinelIQ: An enterprise-grade Applied AI Engineering system for NexaTel. Build RAG, LangGraph, and ingestion pipelines over telecom operational data.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25,12 +25,12 @@
                     <a href="#sentineliq">Home</a>
                     <a href="#product-to-build">About us</a>
                     <a href="#subproject-driven-architecture-and-implementation-flow">Documentation</a>
-                    <a href="#" id="nav-feedback">Feedback</a>
-                    <a href="#" id="nav-audit">Audit Log</a>
+                    <a href="javascript:void(0)" id="nav-feedback">Feedback</a>
+                    <a href="javascript:void(0)" id="nav-audit">Audit Log</a>
                 </div>
                 <div class="window-auth">
                     <a href="sentineliq_project_skeleton.zip" download class="btn-download">&#11015; Download Skeleton</a>
-                    <a href="#" class="font-bold">
+                    <a href="javascript:void(0)" id="nav-signin" class="font-bold">
                         <span class="icon-user">&#128100;</span> Sign in
                     </a>
                 </div>
@@ -126,7 +126,7 @@ This project focuses on bridging the gap between structured database content and
 </tr>
 <tr>
 <td><code>DESCRIPTION</code></td>
-<td>VARCHAR2(4000)</td>
+<td>CLOB</td>
 <td>Free text; contains emails, URLs, INC/CHG IDs, runbook links</td>
 </tr>
 <tr>
@@ -162,7 +162,7 @@ This project focuses on bridging the gap between structured database content and
 <tr>
 <td><code>CHANGE_ID</code></td>
 <td>VARCHAR2(100)</td>
-<td><code>CHG-YYYY-MM-NNN</code></td>
+<td><code>CHG-YYYY-NNN</code> or <code>CHG-YYYY-MM-NNN</code></td>
 </tr>
 <tr>
 <td><code>SLA_TARGET_MINUTES</code></td>
@@ -232,7 +232,7 @@ This project focuses on bridging the gap between structured database content and
 <li>A subset of tickets are service-request type with no <code>INCIDENT_ID</code></li>
 <li>Duplicate tickets exist in the dataset; some share identical titles/metadata (e.g. repeated alerts under separate auto-generated IDs), while others may have follow-up duplicate formats or related DUP suffixes.</li>
 <li>Severity is NULL on a small number of rows — the pipeline must handle gracefully</li>
-<li><code>DESCRIPTION</code> is free text and contains: runbook URLs (<code>https://runbooks.asterion.example/nexatel/{area}/incident-response</code>), SRE emails, incident refs (<code>INC-YYYY-NNNN</code>), change refs (<code>CHG-YYYY-MM-NNN</code>), release train refs (<code>NXTEL-YYYY-QN</code>), semantic versions, request IDs, and trace IDs</li>
+<li><code>DESCRIPTION</code> is free text and contains: runbook URLs (<code>https://runbooks.asterion.example/nexatel/{area}/incident-response</code>), SRE emails, incident refs (<code>INC-YYYY-NNNN</code>), change refs (<code>CHG-YYYY-NNN</code> or <code>CHG-YYYY-MM-NNN</code>), release train refs (<code>NXTEL-YYYY-QN</code>), semantic versions, request IDs, and trace IDs</li>
 </ul>
 <h4 id="prod_ticket_comments-source"><code>PROD_TICKET_COMMENTS</code> (source)</h4><div class="table-scroll"><table>
 <thead>
@@ -251,7 +251,7 @@ This project focuses on bridging the gap between structured database content and
 </tr>
 <tr>
 <td><code>CREATED_AT</code></td>
-<td>VARCHAR2 (timestamp string)</td>
+<td>TIMESTAMP</td>
 </tr>
 <tr>
 <td><code>AUTHOR</code></td>
@@ -303,7 +303,7 @@ This project focuses on bridging the gap between structured database content and
 <p>All 21 services are active. Tier-0 services are mission-critical and their incidents carry the highest retrieval priority in the RAG grader.</p>
 <p>Services by tier:</p>
 <ul>
-<li><strong>tier_0:</strong> Identity Broker, OTP Delivery Orchestrator, Online Charging Gateway, SIM Activation Workflow, eSIM Orchestration Service, QoS Alarm Correlation Engine, Major Incident Bridge, Partner API Gateway, Fraud Velocity Rule Engine, Fulfillment Orchestrator, and others</li>
+<li><strong>tier_0:</strong> Fraud Velocity Rule Engine, Fulfillment Orchestrator, Identity Broker, Major Incident Bridge, OTP Delivery Orchestrator, Online Charging Gateway, Partner API Gateway, QoS Alarm Correlation Engine, SIM Activation Workflow, eSIM Orchestration Service</li>
 <li><strong>tier_1:</strong> Invoice Rendering Engine, Payment Posting Adapter, CDR Mediation Pipeline, Customer 360 API, Mobile Self-Care Backend, Roaming TAP Validator, Digital KYC Adapter, SMS Notification Hub, Daily CDR Export</li>
 <li><strong>tier_2:</strong> SIM Inventory Sync, Partner Settlement Reconciliation</li>
 </ul>
@@ -354,7 +354,7 @@ This project focuses on bridging the gap between structured database content and
 </tbody></table></div>
 <p>Pre-loaded snapshots cover: asset inventory, CDR reconciliation, change requests, knowledge articles, maintenance windows, on-call roster, problem records, security advisories, ServiceNow incidents, SLA monthly reports, vendor outages, and CMDB services.</p>
 <p>The ingestion pipeline must parse <code>PAYLOAD_JSON</code> (a JSON string, not an object) to extract individual records. Do not re-fetch from live endpoints. When processing the file-based originals, check <code>RESPONSE_HASH</code> before inserting to avoid duplicates.</p>
-<h4 id="support_tickets-destination-empty"><code>SUPPORT_TICKETS</code> (destination, empty)</h4><p>This is the <strong>enriched normalised destination table</strong> the ingestion and knowledge-prep pipeline must populate. It is a superset of <code>PROD_TICKETS</code> with 49 VARCHAR2 columns. All column values are stored as strings — the pipeline must cast types on write.</p>
+<h4 id="support_tickets-destination-empty"><code>SUPPORT_TICKETS</code> (destination, empty)</h4><p>This is the <strong>enriched normalised destination table</strong> the ingestion and knowledge-prep pipeline must populate. It is a superset of <code>PROD_TICKETS</code> with 49 columns. It preserves proper database types (such as <code>NUMBER</code> for numeric columns and <code>TIMESTAMP</code> for lifecycle and update timestamps) to maintain type safety, indexing efficiency, timezone handling, and arithmetic operations.</p>
 <p>Extra columns beyond <code>PROD_TICKETS</code>:</p>
 <div class="table-scroll"><table>
 <thead>
@@ -483,7 +483,7 @@ Format: <strong>JSON lines</strong> — each line is one complete, standalone JS
 Naming convention: <code>nexatel_managed_ops_YYYY_MM.log</code></p>
 <p>Each JSON log entry contains:
 <code>timestamp</code>, <code>level</code> (INFO / WARN / ERROR / CRITICAL), <code>service_name</code>, <code>service_id</code>, <code>product_area</code>, <code>client</code>, <code>service_provider</code>, <code>environment</code>, <code>region</code>, <code>customer_segment</code>, <code>error_code</code>, <code>http_status</code>, <code>latency_ms</code>, <code>retry_count</code>, <code>incident_id</code>, <code>ticket_id</code>, <code>request_id</code>, <code>trace_id</code>, <code>span_id</code>, <code>url</code>, <code>user_email</code>, <code>message</code></p>
-<p>The Log Reader logic in <code>ingestion/readers.py</code> must call <code>json.loads(line)</code> for each non-empty line. Do not apply regex to raw log text. Each file becomes one <code>RawDocument</code>. Individual log entries become <code>ExtractedEntity</code> records.</p>
+<p>The Log Reader logic in <code>ingestion/readers.py</code> must call <code>json.loads(line)</code> for each non-empty line. Do not apply regex to raw log text. Each file becomes one <code>RawDocument</code>. Individual log entries become <code>ExtractedEntity</code> records. Since <code>span_id</code> is present in log entries but does not map to a destination column in <code>SUPPORT_TICKETS</code>, it must be extracted as an <code>ExtractedEntity</code> of type <code>span_id</code> with <code>entity_value = log_entry[&#39;span_id&#39;]</code> (with confidence=1.0).</p>
 <p>Duplicate detection is required — at least one log file is a byte-for-byte copy of another.</p>
 <h4 id="bad-files-and-systemic-corruption">Bad Files and Systemic Corruption</h4><p>To simulate production-level data quality issues, there are bad files and systematically corrupted records mixed into the normal directories.</p>
 <p><strong>1. Static Bad Files:</strong></p>
@@ -682,7 +682,7 @@ A background process has deliberately corrupted approximately 4% of the operatio
 </ul>
 <h2 id="repository-layout">Repository Layout</h2><p>The system is structured as three distinct subprojects that communicate sequentially. Trainees must build them in order:</p>
 <ol>
-<li><strong>Subproject 1: Ingestion Pipeline</strong> (Loads DB and raw files into SQL databases; exposes the <code>ingestor</code> CLI).</li>
+<li><strong>Subproject 1: Ingestion Pipeline</strong> (Loads DB and raw files into SQL databases; exposes the <code>ingestion</code> CLI).</li>
 <li><strong>Subproject 2: Knowledge Preparation</strong> (Cleans data, runs LangChain batch enrichment, and exports the Golden Dataset; exposes the <code>knowledge_prep</code> CLI).</li>
 <li><strong>Subproject 3: RAG + LangGraph Copilot</strong> (Vector indexes the Golden Dataset, orchestrates Q&amp;A via LangGraph, and evaluates results; exposes the <code>copilot</code> CLI &amp; FastAPI).</li>
 </ol>
@@ -780,16 +780,13 @@ A background process has deliberately corrupted approximately 4% of the operatio
 <li><code>sentence-transformers</code></li>
 <li><code>fastapi</code></li>
 <li><code>uvicorn</code></li>
-<li><code>pytest</code></li>
-<li><code>pytest-asyncio</code></li>
-<li><code>ruff</code></li>
 </ul>
 <p>Do not add paid provider packages unless they are optional.</p>
 <p><strong>Steps to build <code>pyproject.toml</code>:</strong></p>
 <ol>
 <li>Create the file at the project root.</li>
 <li>Add <code>[project]</code> section with <code>name = &quot;sentineliq&quot;</code> and <code>requires-python = &quot;&gt;=3.11&quot;</code>.</li>
-<li>List every runtime dependency listed above under <code>dependencies = [...]</code>.</li>
+<li>List every runtime dependency listed above under <code>dependencies = [...]</code> (do NOT list development dependencies here).</li>
 <li>Add <code>[project.optional-dependencies]</code> with a <code>dev</code> group containing <code>pytest</code>, <code>pytest-asyncio</code>, and <code>ruff</code>; also add a <code>readers</code> group containing <code>pypdf</code> and <code>python-docx</code> for the file readers built in Subproject 1.</li>
 <li>Add <code>[tool.setuptools.packages.find]</code> with <code>include = [&quot;utils*&quot;, &quot;ingestion*&quot;, &quot;knowledge_prep*&quot;, &quot;copilot*&quot;]</code> so all four top-level packages are discoverable.</li>
 <li>Add <code>[tool.ruff]</code> section: set <code>line-length = 120</code>, <code>target-version = &quot;py311&quot;</code>, enable <code>select = [&quot;E&quot;, &quot;F&quot;, &quot;I&quot;]</code>.</li>
@@ -803,9 +800,9 @@ A background process has deliberately corrupted approximately 4% of the operatio
 LOG_LEVEL=INFO
 
 DATABASE_BACKEND=oracle
-ORACLE_USER=TRAININGSPROGRAMM_SCHEMA_0H7C8
-ORACLE_PASSWORD=VL5JMY1BBSLY4ZAB4WXGY9IDt#MITS
-ORACLE_DSN=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCPS)(HOST=db.freesql.com)(PORT=2484))(CONNECT_DATA=(SERVICE_NAME=23ai_34ui2)))
+ORACLE_USER=your_oracle_user_here
+ORACLE_PASSWORD=your_oracle_password_here
+ORACLE_DSN=your_oracle_dsn_here
 
 DATA_RAW_DIR=data/raw
 DATA_PROCESSED_DIR=data/processed
@@ -820,8 +817,8 @@ LLM_PROVIDER=gemini
 GEMINI_API_KEY=
 GROQ_API_KEY=
 OPENROUTER_API_KEY=
-LLM_CHAT_MODEL=gemini-1.5-flash
-EMBED_MODEL=models/text-embedding-004
+LLM_CHAT_MODEL=gemini-2.5-flash
+EMBED_MODEL=models/text-embedding-005
 
 LANGSMITH_TRACING=false
 LANGSMITH_API_KEY=
@@ -843,7 +840,7 @@ LANGSMITH_API_KEY=
 <li><code>make lint</code>: Run <code>ruff check .</code>.</li>
 <li><code>make test</code>: Run <code>pytest</code>.</li>
 <li><code>make validate-data</code>: Run <code>python scripts/validate_raw_data.py</code>.</li>
-<li><code>make migrate</code>: Run <code>python -m utils.persistence.migrations</code>.</li>
+<li><code>make migrate</code>: Run <code>python -m utils.persistence</code>.</li>
 <li><code>make ingest-db</code>: Run <code>python -m ingestion.cli ingest-db</code> — reads <code>PROD_TICKETS</code>, <code>PROD_TICKET_COMMENTS</code>, <code>PROD_SERVICES</code>, and <code>API_SNAPSHOTS</code>; writes to <code>SUPPORT_TICKETS</code>. Always run this first.</li>
 <li><code>make ingest-files</code>: Run <code>python -m ingestion.cli ingest-files</code> — discovers and ingests all files under <code>data/raw/</code>.</li>
 <li><code>make ingest-api</code>: Run <code>python -m ingestion.cli ingest-api</code> — parses <code>API_SNAPSHOTS.PAYLOAD_JSON</code> and persists extracted records.</li>
@@ -983,9 +980,11 @@ cp .env.example .env
 </code></pre>
 <p>Expected output:</p>
 <pre><code class="language-text">Raw data validation completed
-Support tickets: [Count]
 Policy files: [Count]
-...
+Release notes: [Count]
+Log files: [Count]
+API snapshots: [Count]
+Bad-file examples: [Count]
 </code></pre>
 <h3 id="3-database-migration">3. Database Migration</h3><p>Initialize the local or remote database schema.</p>
 <pre><code class="language-bash">make migrate
@@ -1092,7 +1091,7 @@ make ask &quot;Which release first introduced ERR_AUTH_401?&quot;
 <ol>
 <li>Define <code>CANONICAL_SEVERITIES = [&quot;critical&quot;, &quot;high&quot;, &quot;medium&quot;, &quot;low&quot;]</code> as a list.</li>
 <li>Define <code>SOURCE_TYPES = [&quot;support_ticket&quot;, &quot;policy&quot;, &quot;release_note&quot;, &quot;log&quot;, &quot;api_snapshot&quot;, &quot;architecture_doc&quot;]</code>.</li>
-<li>Define <code>ALLOWED_EXTENSIONS = {&quot;.json&quot;, &quot;.log&quot;, &quot;.pdf&quot;, &quot;.docx&quot;, &quot;.txt&quot;, &quot;.md&quot;}</code>.</li>
+<li>Define <code>ALLOWED_EXTENSIONS = {&quot;.json&quot;, &quot;.log&quot;, &quot;.pdf&quot;, &quot;.docx&quot;, &quot;.md&quot;}</code>.</li>
 <li>Define <code>PRODUCT_ALIAS_MAP</code> as a dict mapping alternate product area names to canonical names (e.g., <code>{&quot;auth&quot;: &quot;auth&quot;, &quot;authentication&quot;: &quot;auth&quot;, &quot;identity&quot;: &quot;auth&quot;}</code>).</li>
 <li>Define <code>DEFAULT_QUALITY_THRESHOLDS = {&quot;min_content_length&quot;: 50, &quot;min_score_for_rag&quot;: 40}</code>.</li>
 <li>Define <code>DATASET_VERSION = &quot;v001&quot;</code> as the canonical version string. All components that construct golden dataset filenames (<code>golden_dataset_writer.py</code>, <code>indexer.py</code>, <code>export-golden</code> CLI handler) must read this constant instead of hardcoding <code>&quot;v001&quot;</code> as a string literal. This ensures a single change here propagates everywhere.</li>
@@ -1155,17 +1154,12 @@ make ask &quot;Which release first introduced ERR_AUTH_401?&quot;
 <li>Create <code>ApiSnapshot(BaseModel)</code> with fields: <code>snapshot_id: str</code>, <code>run_id: str</code>, <code>source_name: str</code>, <code>endpoint: str</code>, <code>status_code: int</code>, <code>fetched_at: datetime</code>, <code>response_hash: str</code>, <code>payload_json: str</code>, <code>metadata_json: str</code>.</li>
 <li>Create <code>IngestionError(BaseModel)</code> with fields: <code>error_id: str</code>, <code>run_id: str</code>, <code>source_file_id: str | None</code>, <code>document_id: str | None</code>, <code>error_type: str</code>, <code>error_message: str</code>, <code>recoverable: bool</code>.</li>
 <li>Create <code>AuditEvent(BaseModel)</code> with fields: <code>event_id: str</code>, <code>entity_type: str</code>, <code>entity_id: str</code>, <code>event_type: str</code>, <code>event_message: str</code>, <code>created_at: datetime</code>.</li>
-<li>Create a placeholder comment for <code>KnowledgeDocument</code> — <strong>do NOT add the import yet</strong>. <code>knowledge_prep/langchain_prep/knowledge_schema.py</code> does not exist until Milestone 2 Step 16. Adding the import now causes an <code>ImportError</code> that will block all of Milestone 1 from running. Instead, add this comment block at the bottom of <code>models.py</code>:</li>
+<li>Create <code>KnowledgeDocument(BaseModel)</code> with fields: <code>knowledge_id: str</code>, <code>source_document_id: str</code>, <code>source_type: SourceType</code>, <code>canonical_title: str</code>, <code>clean_content: str</code>, <code>summary: str | None = None</code>, <code>product_area: str | None</code>, <code>severity: str | None</code>, <code>authority_level: str = &quot;standard&quot;</code>, <code>freshness_score: float = 1.0</code>, <code>quality_score: int</code>, <code>quality_label: QualityLabel</code>, <code>sensitivity_tags: list[str] = []</code>, <code>prompt_injection_risk: bool = False</code>, <code>recommended_chunk_strategy: str = &quot;recursive&quot;</code>, <code>lineage: dict = {}</code>, <code>dataset_version: str</code>. Add a model validator: if <code>prompt_injection_risk</code> is True, <code>quality_label</code> must not be <code>READY_FOR_RAG</code>.</li>
+<li>Create <code>ChunkRecord(BaseModel)</code> with fields: <code>chunk_id: str</code>, <code>document_id: str</code>, <code>chunk_text: str</code>, <code>chunk_index: int</code>, <code>metadata: dict</code>, <code>embedding: list[float] | None = None</code>.</li>
+<li>Create <code>RetrievedChunk(BaseModel)</code> with fields: <code>chunk_id: str</code>, <code>document_id: str</code>, <code>chunk_text: str</code>, <code>chunk_index: int</code>, <code>metadata: dict</code>, <code>relevance_score: float</code>.</li>
+<li>Create <code>CopilotAnswer(BaseModel)</code> with fields: <code>answer_text: str</code>, <code>citations: list[str]</code>, <code>confidence: float</code>, <code>source_count: int</code>.</li>
+<li><strong>Key rule:</strong> These models must NEVER import from persistence, ingestion, or any other layer — they are pure data containers.</li>
 </ol>
-<pre><code class="language-python"># TODO (Milestone 2, Step 16): After knowledge_prep/langchain_prep/knowledge_schema.py
-# is created, uncomment the line below to re-export KnowledgeDocument from this module.
-# from knowledge_prep.langchain_prep.knowledge_schema import KnowledgeDocument
-</code></pre>
-<p>   Return here after completing Milestone 2 Step 16 and uncomment the import.
-11. Create <code>ChunkRecord(BaseModel)</code> with fields: <code>chunk_id: str</code>, <code>document_id: str</code>, <code>chunk_text: str</code>, <code>chunk_index: int</code>, <code>metadata: dict</code>, <code>embedding: list[float] | None = None</code>.
-12. Create <code>RetrievedChunk(BaseModel)</code> with fields: <code>chunk_id: str</code>, <code>document_id: str</code>, <code>chunk_text: str</code>, <code>chunk_index: int</code>, <code>metadata: dict</code>, <code>relevance_score: float</code>.
-13. Create <code>CopilotAnswer(BaseModel)</code> with fields: <code>answer_text: str</code>, <code>citations: list[str]</code>, <code>confidence: float</code>, <code>source_count: int</code>.
-14. <strong>Key rule:</strong> These models must NEVER import from persistence, ingestion, or any other layer — they are pure data containers.</p>
 <h3 id="utilsdomainpy-errors"><code>utils/domain.py</code> (Errors)</h3><p>Contains custom exceptions:</p>
 <ul>
 <li><code>SentinelIQError</code></li>
@@ -1223,7 +1217,7 @@ make ask &quot;Which release first introduced ERR_AUTH_401?&quot;
 <ol>
 <li><p>Write <code>calculate_content_hash(path: Path) -&gt; str</code> first. This function is the project&#39;s <strong>deduplication foundation</strong>: if you hash a file and the same hash already exists in the database, the pipeline skips re-processing it. Use <code>hashlib.sha256()</code> and read in 8 KB chunks — never load large <code>.log</code> files entirely into memory.</p>
 </li>
-<li><p>Write <code>detect_source_type(path: Path) -&gt; SourceType</code>. Source type is determined purely from the <strong>directory structure</strong>, not the file extension. A file anywhere under <code>policies/</code> is a <code>POLICY</code>; under <code>docs/architecture/</code> or <code>docs/decisions/</code> it is an <code>ARCHITECTURE_DOC</code>. This is the contract: <em>directory = intent</em>. Return <code>SourceType.UNKNOWN</code> only when the path does not match any known directory. Note: <code>SUPPORT_TICKET</code> and <code>API_SNAPSHOT</code> are never assigned here — those types come exclusively from database ingestion.</p>
+<li><p>Write <code>detect_source_type(path: Path) -&gt; SourceType</code>. Source type is determined purely from the <strong>directory structure</strong>, not the file extension. A file anywhere under <code>policies/</code> is a <code>POLICY</code>; under <code>docs/architecture/</code> or <code>docs/decisions/</code> it is an <code>ARCHITECTURE_DOC</code>. Any file directly at the root level of <code>docs/</code> (e.g. <code>data/raw/docs/</code>) or not under those subdirectories must return <code>SourceType.UNKNOWN</code>. This is the contract: <em>directory = intent</em>. Return <code>SourceType.UNKNOWN</code> only when the path does not match any known directory. Note: <code>SUPPORT_TICKET</code> and <code>API_SNAPSHOT</code> are never assigned here — those types come exclusively from database ingestion.</p>
 </li>
 <li><p>Write <code>discover_files(root_dir: Path) -&gt; list[SourceFile]</code>. Use <code>root_dir.rglob(&quot;*&quot;)</code> to walk everything. Apply two filters: skip hidden files (names starting with <code>.</code>), and for any file whose extension is not in <code>ALLOWED_EXTENSIONS</code>, create a <code>SourceFile</code> with <code>status=IngestionStatus.FAILED</code> and log a warning. For all other files, compute the content hash, detect the source type, collect file size and modified time, and build the <code>SourceFile</code> object.</p>
 </li>
@@ -1500,6 +1494,10 @@ make ask &quot;Which release first introduced ERR_AUTH_401?&quot;
 <li><code>SEMVER_PATTERN</code></li>
 <li><code>TICKET_ID_PATTERN</code></li>
 <li><code>INCIDENT_ID_PATTERN</code></li>
+<li><code>CHANGE_ID_PATTERN</code></li>
+<li><code>RELEASE_TRAIN_PATTERN</code></li>
+<li><code>RUNBOOK_URL_PATTERN</code></li>
+<li><code>EVIDENCE_URL_PATTERN</code></li>
 <li><code>ERROR_CODE_PATTERN</code></li>
 <li><code>HTTP_STATUS_PATTERN</code></li>
 <li><code>SEVERITY_PATTERN</code></li>
@@ -1522,6 +1520,10 @@ make ask &quot;Which release first introduced ERR_AUTH_401?&quot;
 <li>Define <code>SEMVER_PATTERN = re.compile(r&quot;\bv?(?P&lt;major&gt;\d+)\.(?P&lt;minor&gt;\d+)\.(?P&lt;patch&gt;\d+)\b&quot;)</code>.</li>
 <li>Define <code>TICKET_ID_PATTERN = re.compile(r&quot;TICKET-(?:DUP-)?\d+&quot;)</code>.</li>
 <li>Define <code>INCIDENT_ID_PATTERN = re.compile(r&quot;INC-\d{4}-\d{4}&quot;)</code>.</li>
+<li>Define <code>CHANGE_ID_PATTERN = re.compile(r&quot;CHG-\d{4}-(?:\d{2}-)?\d{3}&quot;)</code>.</li>
+<li>Define <code>RELEASE_TRAIN_PATTERN = re.compile(r&quot;NXTEL-\d{4}-Q[1-4]&quot;)</code>.</li>
+<li>Define <code>RUNBOOK_URL_PATTERN = re.compile(r&quot;https://runbooks\.asterion\.example/nexatel/[a-z0-9_]+/incident-response&quot;)</code>.</li>
+<li>Define <code>EVIDENCE_URL_PATTERN = re.compile(r&quot;https?://[^\s&lt;&gt;\&quot;]+/evidence/[a-zA-Z0-9_-]+&quot;)</code>.</li>
 <li>Define <code>ERROR_CODE_PATTERN = re.compile(r&quot;ERR_[A-Z_]+_\d{3}&quot;)</code>.</li>
 <li>Define <code>HTTP_STATUS_PATTERN = re.compile(r&quot;\b[45]\d{2}\b&quot;)</code>.</li>
 <li>Define <code>SEVERITY_PATTERN = re.compile(r&quot;\b(critical|high|medium|low)\b&quot;, re.IGNORECASE)</code>.</li>
@@ -1714,7 +1716,7 @@ d. If validation fails, raise <code>LLMOutputValidationError</code> with the Pyd
 <li>Optionally, create a <code>_migrations_applied</code> table to track which migrations have been run. Before running a migration, check if its filename is already in this table.</li>
 <li>Wrap in <code>try/except</code> — if a table already exists (<code>ORA-00955</code>), log a warning and continue.</li>
 <li>Print <code>&quot;Applied migration {filename}&quot;</code> for each successfully applied file.</li>
-<li>Add a <code>if __name__ == &quot;__main__&quot;:</code> block at the bottom of the file so it can be invoked via <code>python -m utils.persistence.migrations</code>:<pre><code class="language-python">if __name__ == &quot;__main__&quot;:
+<li>Add a <code>if __name__ == &quot;__main__&quot;:</code> block at the bottom of the file so it can be invoked via <code>python -m utils.persistence</code>:<pre><code class="language-python">if __name__ == &quot;__main__&quot;:
     from utils.config.settings import get_settings
     from utils.persistence.db import get_database
     settings = get_settings()
@@ -1723,8 +1725,9 @@ d. If validation fails, raise <code>LLMOutputValidationError</code> with the Pyd
 </code></pre>
 </li>
 </ol>
-<h3 id="repository-files">Repository Files</h3><p>Each repository contains only SQL operations for one area.</p>
-<h4 id="ingestion_run_repositorypy"><code>ingestion_run_repository.py</code></h4><p>Methods:</p>
+<h3 id="repository-files">Repository Files</h3><p><strong>Note: All DB repositories described below must be consolidated and implemented within a single file named <code>ingestion/repositories.py</code> (instead of separate files).</strong></p>
+<p>Each repository contains only SQL operations for one area.</p>
+<h4 id="repositoriespy-ingestion-run-repository"><code>repositories.py</code> (Ingestion Run Repository)</h4><p>Methods:</p>
 <ul>
 <li><code>create_run(run: IngestionRun) -&gt; str</code></li>
 <li><code>mark_completed(run_id: str, stats: dict) -&gt; None</code></li>
@@ -1740,7 +1743,7 @@ d. If validation fails, raise <code>LLMOutputValidationError</code> with the Pyd
 <li>Write <code>get_latest_run(self) -&gt; IngestionRun | None</code>: execute <code>SELECT * FROM ingestion_runs ORDER BY started_at DESC FETCH FIRST 1 ROW ONLY</code>, map the row to an <code>IngestionRun</code> model.</li>
 <li><strong>Key rule:</strong> Always use Oracle bind variables (<code>:1</code>, <code>:2</code>) — never f-string or string concatenation for SQL values.</li>
 </ol>
-<h4 id="source_file_repositorypy"><code>source_file_repository.py</code></h4><p>Methods:</p>
+<h4 id="repositoriespy-source-file-repository"><code>repositories.py</code> (Source File Repository)</h4><p>Methods:</p>
 <ul>
 <li><code>upsert_source_file(source_file: SourceFile) -&gt; str</code></li>
 <li><code>exists_by_hash(content_hash: str) -&gt; bool</code></li>
@@ -1753,7 +1756,7 @@ d. If validation fails, raise <code>LLMOutputValidationError</code> with the Pyd
 <li>Write <code>exists_by_hash(self, content_hash) -&gt; bool</code>: execute <code>SELECT COUNT(*) FROM source_files WHERE content_hash = :1</code>, return <code>count &gt; 0</code>. This is used for deduplication — if a file with the same hash already exists, the ingestion service skips it.</li>
 <li>Write <code>get_by_path(self, path) -&gt; SourceFile | None</code>: execute <code>SELECT * FROM source_files WHERE path = :1</code>, map to model or return <code>None</code>.</li>
 </ol>
-<h4 id="document_repositorypy"><code>document_repository.py</code></h4><p>Methods:</p>
+<h4 id="repositoriespy-document-repository"><code>repositories.py</code> (Document Repository)</h4><p>Methods:</p>
 <ul>
 <li><code>insert_raw_document(document: RawDocument) -&gt; str</code></li>
 <li><code>upsert_normalized_document(document: NormalizedDocument) -&gt; str</code></li>
@@ -1770,7 +1773,7 @@ d. If validation fails, raise <code>LLMOutputValidationError</code> with the Pyd
 <li>Write <code>list_documents_with_lineage(self, limit)</code>: Execute a <code>JOIN</code> between <code>normalized_documents</code> (n), <code>raw_documents</code> (r), and <code>source_files</code> (s) on <code>n.raw_document_id = r.raw_document_id</code> and <code>r.source_file_id = s.source_file_id</code>. Return a list of dicts containing all normalized document fields plus <code>path</code> and <code>run_id</code>.</li>
 <li>Write <code>get_document_with_entities(self, document_id)</code>: join <code>normalized_documents</code> with <code>extracted_entities</code> on <code>document_id</code>, return a dict with the document and its entity list.</li>
 </ol>
-<h4 id="entity_repositorypy"><code>entity_repository.py</code></h4><p>Methods:</p>
+<h4 id="repositoriespy-entity-repository"><code>repositories.py</code> (Entity Repository)</h4><p>Methods:</p>
 <ul>
 <li><code>insert_entities(document_id: str, entities: list[ExtractedEntity]) -&gt; None</code></li>
 <li><code>list_entities(document_id: str) -&gt; list[ExtractedEntity]</code></li>
@@ -1781,7 +1784,7 @@ d. If validation fails, raise <code>LLMOutputValidationError</code> with the Pyd
 <li>Write <code>insert_entities(self, document_id, entities)</code>: for each <code>ExtractedEntity</code>, execute <code>INSERT INTO extracted_entities (entity_id, document_id, entity_type, entity_value, start_offset, end_offset, confidence, created_at) VALUES (:1, :2, ..., SYSTIMESTAMP)</code>. Use <code>cursor.executemany()</code> for batch insert performance.</li>
 <li>Write <code>list_entities(self, document_id)</code>: <code>SELECT * FROM extracted_entities WHERE document_id = :1 ORDER BY start_offset</code>. Map rows to <code>ExtractedEntity</code> models.</li>
 </ol>
-<h4 id="api_snapshot_repositorypy"><code>api_snapshot_repository.py</code></h4><p>Methods:</p>
+<h4 id="repositoriespy-api-snapshot-repository"><code>repositories.py</code> (API Snapshot Repository)</h4><p>Methods:</p>
 <ul>
 <li><code>insert_snapshot(snapshot: ApiSnapshot) -&gt; str</code></li>
 <li><code>get_latest_snapshot(source_name: str) -&gt; ApiSnapshot | None</code></li>
@@ -1792,7 +1795,7 @@ d. If validation fails, raise <code>LLMOutputValidationError</code> with the Pyd
 <li>Write <code>insert_snapshot(self, snapshot)</code>: first check <code>SELECT COUNT(*) FROM api_snapshots WHERE response_hash = :1</code>. If exists, skip (deduplication). Otherwise <code>INSERT INTO api_snapshots (...) VALUES (...)</code>. Return the <code>snapshot_id</code>.</li>
 <li>Write <code>get_latest_snapshot(self, source_name)</code>: <code>SELECT * FROM api_snapshots WHERE source_name = :1 ORDER BY fetched_at DESC FETCH FIRST 1 ROW ONLY</code>. Map to <code>ApiSnapshot</code> or return <code>None</code>.</li>
 </ol>
-<h4 id="error_repositorypy"><code>error_repository.py</code></h4><p>Methods:</p>
+<h4 id="repositoriespy-error-repository"><code>repositories.py</code> (Error Repository)</h4><p>Methods:</p>
 <ul>
 <li><code>insert_error(error: IngestionError) -&gt; None</code></li>
 <li><code>list_errors(run_id: str) -&gt; list[IngestionError]</code></li>
@@ -1803,7 +1806,7 @@ d. If validation fails, raise <code>LLMOutputValidationError</code> with the Pyd
 <li>Write <code>insert_error(self, error)</code>: <code>INSERT INTO ingestion_errors (error_id, run_id, source_file_id, document_id, error_type, error_message, recoverable, created_at, context_json) VALUES (...)</code>. Use bind variables.</li>
 <li>Write <code>list_errors(self, run_id)</code>: <code>SELECT * FROM ingestion_errors WHERE run_id = :1 ORDER BY created_at</code>. Map rows to <code>IngestionError</code> models. This is used by the <code>status</code> CLI command to show what failed.</li>
 </ol>
-<h4 id="audit_repositorypy"><code>audit_repository.py</code></h4><p>Methods:</p>
+<h4 id="repositoriespy-audit-repository"><code>repositories.py</code> (Audit Repository)</h4><p>Methods:</p>
 <ul>
 <li><code>insert_event(event: AuditEvent) -&gt; None</code></li>
 <li><code>list_events(entity_id: str) -&gt; list[AuditEvent]</code></li>
@@ -2031,7 +2034,7 @@ python -m ingestion.cli status
 <ol>
 <li>Import <code>argparse</code>.</li>
 <li>Import <code>get_settings</code> from <code>utils.config.settings</code> and <code>configure_logging</code> from <code>utils.config.logging_config</code>.</li>
-<li>Create an <code>ArgumentParser(description=&quot;Ingestor CLI&quot;)</code> and add subcommands using <code>add_subparsers(dest=&quot;command&quot;)</code>.</li>
+<li>Create an <code>ArgumentParser(description=&quot;Ingestion CLI&quot;)</code> and add subcommands using <code>add_subparsers(dest=&quot;command&quot;)</code>.</li>
 <li>Implement subcommand handlers:<ul>
 <li><code>scan</code>: call <code>file_discovery.discover_files(settings.data_raw_dir)</code>, print the count of files found grouped by extension.</li>
 <li><code>ingest-db</code>: instantiate <code>IngestionService</code>, call its <code>ingest_from_database()</code> method which reads <code>PROD_TICKETS</code>, joins <code>PROD_SERVICES</code>, enriches columns, and writes to <code>SUPPORT_TICKETS</code>. Print summary stats.</li>
@@ -2270,10 +2273,8 @@ Clamp the final score to <code>0-100</code>.</li>
 </ul>
 <p><strong>Steps to build <code>knowledge_prep/enrichment.py</code> (Knowledge Schema section):</strong></p>
 <ol>
-<li>Import <code>pydantic.BaseModel</code> and enums from domain.</li>
-<li>Create <code>class KnowledgeDocument(BaseModel)</code> with all the fields listed above, using proper types: <code>knowledge_id: str</code>, <code>source_document_id: str</code>, <code>source_type: SourceType</code>, <code>canonical_title: str</code>, <code>clean_content: str</code>, <code>summary: str | None = None</code>, <code>product_area: str | None</code>, <code>severity: str | None</code>, <code>authority_level: str = &quot;standard&quot;</code>, <code>freshness_score: float = 1.0</code>, <code>quality_score: int</code>, <code>quality_label: QualityLabel</code>, <code>sensitivity_tags: list[str] = []</code>, <code>prompt_injection_risk: bool = False</code>, <code>recommended_chunk_strategy: str = &quot;recursive&quot;</code>, <code>lineage: dict = {}</code>, <code>dataset_version: str</code>.</li>
-<li>Add a validator for <code>quality_label</code>: if <code>prompt_injection_risk</code> is True, <code>quality_label</code> must not be <code>READY_FOR_RAG</code>.</li>
-<li>This model is the single contract between the knowledge prep layer and the RAG layer.</li>
+<li>Import <code>KnowledgeDocument</code> and <code>QualityLabel</code> from <code>utils.domain</code> (where it was defined in Milestone 1).</li>
+<li>The <code>KnowledgeDocument</code> model acts as the single contract between the knowledge prep layer and the RAG layer.</li>
 </ol>
 <h3 id="knowledge_prepenrichmentpy-document-mapper"><code>knowledge_prep/enrichment.py</code> (Document Mapper)</h3><p>Purpose:</p>
 <ul>
@@ -3480,7 +3481,6 @@ cp .env.example .env
 </code></pre>
 <p>Expected output:</p>
 <pre><code class="language-text">Raw data validation completed
-Support tickets: [Count]
 Policy files: [Count]
 Release notes: [Count]
 Log files: [Count]
@@ -3527,7 +3527,7 @@ make ask &quot;Which release first introduced ERR_AUTH_401?&quot;
 <li><code>ingestion/cli.py</code> — implement last</li>
 </ol>
 <h3 id="milestone-2-data-quality-golden-dataset-weeks-3-4">Milestone 2: Data Quality &amp; Golden Dataset (Weeks 3-4)</h3><ol start="12">
-<li><code>knowledge_prep/enrichment.py</code> (Knowledge Schema section) — defines <code>KnowledgeDocument</code>. <strong>After creating this</strong>, go back to <code>utils/domain.py</code> and uncomment the <code>TODO</code> import line for <code>KnowledgeDocument</code>.</li>
+<li><code>knowledge_prep/enrichment.py</code> (Knowledge Schema section) — imports <code>KnowledgeDocument</code> from <code>utils.domain</code>.</li>
 <li><code>knowledge_prep/quality_engine.py</code> — handles loading, profiling, cleaning, deduplication, and PII masking</li>
 <li><code>knowledge_prep/quality_reports.py</code> — exports metric outputs</li>
 <li><code>knowledge_prep/enrichment.py</code> (remaining logic) — mappers, prompts, enrichers, batch running, and golden dataset writing</li>
@@ -3650,6 +3650,9 @@ make ask &quot;Which release first introduced ERR_AUTH_401?&quot;
     </div>
 
     <style>
+    .page-wrapper {
+        display: none;
+    }
     /* ── Table scroll ── */
     .table-scroll {
         overflow-x: auto;
@@ -3845,22 +3848,35 @@ make ask &quot;Which release first introduced ERR_AUTH_401?&quot;
             localStorage.setItem('sentineliq_audit_events', JSON.stringify(auditEvents.slice(0, 50)));
         }
 
+        function isValidEmail(email) {
+            return /^[a-zA-Z0-9._%+-]+@(nexatel.example|asterion.example)$/.test(email);
+        }
+
+        const pageWrapper = document.querySelector('.page-wrapper');
         const savedEmail = localStorage.getItem('sentineliq_user_email');
-        if (savedEmail) {
+        if (savedEmail && isValidEmail(savedEmail)) {
             applySuffix(savedEmail);
+            if (pageWrapper) pageWrapper.style.display = 'block';
             logAuditEvent('SRE Session Restored (' + getSuffix(savedEmail) + ')', savedEmail);
         } else {
+            if (pageWrapper) pageWrapper.style.display = 'none';
             modal.style.display = 'flex';
         }
 
         form.addEventListener('submit', (e) => {
             e.preventDefault();
             const email = input.value.trim();
-            if (!email) { errorMsg.textContent = 'Please enter a valid email.'; errorMsg.style.display = 'block'; return; }
+            if (!email || !isValidEmail(email)) {
+                errorMsg.textContent = 'Access Denied: Please enter a valid corporate email ending in @nexatel.example or @asterion.example.';
+                errorMsg.style.display = 'block';
+                return;
+            }
+            errorMsg.style.display = 'none';
             localStorage.setItem('sentineliq_user_email', email);
             applySuffix(email);
             logAuditEvent('SRE Session Started (' + getSuffix(email) + ')', email);
             modal.style.display = 'none';
+            if (pageWrapper) pageWrapper.style.display = 'block';
         });
 
         if (signInBtn) {

@@ -32,7 +32,7 @@ const htmlTemplate = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=1200">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>SentinelIQ — Applied AI Engineering</title>
     <meta name="description" content="SentinelIQ: An enterprise-grade Applied AI Engineering system for NexaTel. Build RAG, LangGraph, and ingestion pipelines over telecom operational data.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -55,12 +55,12 @@ const htmlTemplate = `<!DOCTYPE html>
                     <a href="#sentineliq">Home</a>
                     <a href="#product-to-build">About us</a>
                     <a href="#subproject-driven-architecture-and-implementation-flow">Documentation</a>
-                    <a href="#" id="nav-feedback">Feedback</a>
-                    <a href="#" id="nav-audit">Audit Log</a>
+                    <a href="javascript:void(0)" id="nav-feedback">Feedback</a>
+                    <a href="javascript:void(0)" id="nav-audit">Audit Log</a>
                 </div>
                 <div class="window-auth">
                     <a href="sentineliq_project_skeleton.zip" download class="btn-download">&#11015; Download Skeleton</a>
-                    <a href="#" class="font-bold">
+                    <a href="javascript:void(0)" id="nav-signin" class="font-bold">
                         <span class="icon-user">&#128100;</span> Sign in
                     </a>
                 </div>
@@ -162,6 +162,9 @@ const htmlTemplate = `<!DOCTYPE html>
     </div>
 
     <style>
+    .page-wrapper {
+        display: none;
+    }
     /* ── Table scroll ── */
     .table-scroll {
         overflow-x: auto;
@@ -357,22 +360,35 @@ const htmlTemplate = `<!DOCTYPE html>
             localStorage.setItem('sentineliq_audit_events', JSON.stringify(auditEvents.slice(0, 50)));
         }
 
+        function isValidEmail(email) {
+            return /^[a-zA-Z0-9._%+-]+@(nexatel\.example|asterion\.example)$/.test(email);
+        }
+
+        const pageWrapper = document.querySelector('.page-wrapper');
         const savedEmail = localStorage.getItem('sentineliq_user_email');
-        if (savedEmail) {
+        if (savedEmail && isValidEmail(savedEmail)) {
             applySuffix(savedEmail);
+            if (pageWrapper) pageWrapper.style.display = 'block';
             logAuditEvent('SRE Session Restored (' + getSuffix(savedEmail) + ')', savedEmail);
         } else {
+            if (pageWrapper) pageWrapper.style.display = 'none';
             modal.style.display = 'flex';
         }
 
         form.addEventListener('submit', (e) => {
             e.preventDefault();
             const email = input.value.trim();
-            if (!email) { errorMsg.textContent = 'Please enter a valid email.'; errorMsg.style.display = 'block'; return; }
+            if (!email || !isValidEmail(email)) {
+                errorMsg.textContent = 'Access Denied: Please enter a valid corporate email ending in @nexatel.example or @asterion.example.';
+                errorMsg.style.display = 'block';
+                return;
+            }
+            errorMsg.style.display = 'none';
             localStorage.setItem('sentineliq_user_email', email);
             applySuffix(email);
             logAuditEvent('SRE Session Started (' + getSuffix(email) + ')', email);
             modal.style.display = 'none';
+            if (pageWrapper) pageWrapper.style.display = 'block';
         });
 
         if (signInBtn) {

@@ -68,14 +68,14 @@ The primary support and incident ticket store for the NexaTel managed-services c
 |---|---|---|
 | `TICKET_ID` | VARCHAR2(50) NOT NULL | e.g. `TICKET-100019`, `TICKET-100037` |
 | `TITLE` | VARCHAR2(1000) NOT NULL | Priority + service + error code pattern |
-| `DESCRIPTION` | VARCHAR2(4000) | Free text; contains emails, URLs, INC/CHG IDs, runbook links |
+| `DESCRIPTION` | CLOB | Free text; contains emails, URLs, INC/CHG IDs, runbook links |
 | `STATUS` | VARCHAR2(50) NOT NULL | `closed`, `monitoring`, `resolved`, `awaiting_customer` |
 | `SEVERITY` | VARCHAR2(20) | `critical`, `high`, `medium`, `low`, or NULL |
 | `PRIORITY` | VARCHAR2(20) | `P1`–`P4` |
 | `PRODUCT_AREA` | VARCHAR2(100) | 18 distinct areas |
 | `SERVICE_ID` | VARCHAR2(100) | FK to `PROD_SERVICES` |
 | `INCIDENT_ID` | VARCHAR2(100) | `INC-YYYY-NNNN`; NULL on service-request type tickets |
-| `CHANGE_ID` | VARCHAR2(100) | `CHG-YYYY-MM-NNN` |
+| `CHANGE_ID` | VARCHAR2(100) | `CHG-YYYY-NNN` or `CHG-YYYY-MM-NNN` |
 | `SLA_TARGET_MINUTES` | NUMBER | 30, 60, 240, 480, or 1440 |
 | `SLA_BREACH` | NUMBER | 0 or 1 |
 | `CREATED_AT` | TIMESTAMP | Full ticket lifecycle from 2021 onwards |
@@ -95,7 +95,7 @@ The primary support and incident ticket store for the NexaTel managed-services c
 - A subset of tickets are service-request type with no `INCIDENT_ID`
 - Duplicate tickets exist in the dataset; some share identical titles/metadata (e.g. repeated alerts under separate auto-generated IDs), while others may have follow-up duplicate formats or related DUP suffixes.
 - Severity is NULL on a small number of rows — the pipeline must handle gracefully
-- `DESCRIPTION` is free text and contains: runbook URLs (`https://runbooks.asterion.example/nexatel/{area}/incident-response`), SRE emails, incident refs (`INC-YYYY-NNNN`), change refs (`CHG-YYYY-MM-NNN`), release train refs (`NXTEL-YYYY-QN`), semantic versions, request IDs, and trace IDs
+- `DESCRIPTION` is free text and contains: runbook URLs (`https://runbooks.asterion.example/nexatel/{area}/incident-response`), SRE emails, incident refs (`INC-YYYY-NNNN`), change refs (`CHG-YYYY-NNN` or `CHG-YYYY-MM-NNN`), release train refs (`NXTEL-YYYY-QN`), semantic versions, request IDs, and trace IDs
 
 #### `PROD_TICKET_COMMENTS` (source)
 
@@ -103,7 +103,7 @@ The primary support and incident ticket store for the NexaTel managed-services c
 |---|---|
 | `COMMENT_ID` | VARCHAR2 |
 | `TICKET_ID` | VARCHAR2 (FK to PROD_TICKETS) |
-| `CREATED_AT` | VARCHAR2 (timestamp string) |
+| `CREATED_AT` | TIMESTAMP |
 | `AUTHOR` | VARCHAR2 |
 | `VISIBILITY` | `internal` or `customer_visible` |
 | `BODY` | VARCHAR2 |
@@ -127,7 +127,7 @@ All 21 services are active. Tier-0 services are mission-critical and their incid
 
 Services by tier:
 
-- **tier_0:** Identity Broker, OTP Delivery Orchestrator, Online Charging Gateway, SIM Activation Workflow, eSIM Orchestration Service, QoS Alarm Correlation Engine, Major Incident Bridge, Partner API Gateway, Fraud Velocity Rule Engine, Fulfillment Orchestrator, and others
+- **tier_0:** Fraud Velocity Rule Engine, Fulfillment Orchestrator, Identity Broker, Major Incident Bridge, OTP Delivery Orchestrator, Online Charging Gateway, Partner API Gateway, QoS Alarm Correlation Engine, SIM Activation Workflow, eSIM Orchestration Service
 - **tier_1:** Invoice Rendering Engine, Payment Posting Adapter, CDR Mediation Pipeline, Customer 360 API, Mobile Self-Care Backend, Roaming TAP Validator, Digital KYC Adapter, SMS Notification Hub, Daily CDR Export
 - **tier_2:** SIM Inventory Sync, Partner Settlement Reconciliation
 
@@ -153,7 +153,7 @@ The ingestion pipeline must parse `PAYLOAD_JSON` (a JSON string, not an object) 
 
 #### `SUPPORT_TICKETS` (destination, empty)
 
-This is the **enriched normalised destination table** the ingestion and knowledge-prep pipeline must populate. It is a superset of `PROD_TICKETS` with 49 VARCHAR2 columns. All column values are stored as strings — the pipeline must cast types on write.
+This is the **enriched normalised destination table** the ingestion and knowledge-prep pipeline must populate. It is a superset of `PROD_TICKETS` with 49 columns. It preserves proper database types (such as `NUMBER` for numeric columns and `TIMESTAMP` for lifecycle and update timestamps) to maintain type safety, indexing efficiency, timezone handling, and arithmetic operations.
 
 Extra columns beyond `PROD_TICKETS`:
 
@@ -226,7 +226,7 @@ Naming convention: `nexatel_managed_ops_YYYY_MM.log`
 Each JSON log entry contains:
 `timestamp`, `level` (INFO / WARN / ERROR / CRITICAL), `service_name`, `service_id`, `product_area`, `client`, `service_provider`, `environment`, `region`, `customer_segment`, `error_code`, `http_status`, `latency_ms`, `retry_count`, `incident_id`, `ticket_id`, `request_id`, `trace_id`, `span_id`, `url`, `user_email`, `message`
 
-The Log Reader logic in `ingestion/readers.py` must call `json.loads(line)` for each non-empty line. Do not apply regex to raw log text. Each file becomes one `RawDocument`. Individual log entries become `ExtractedEntity` records.
+The Log Reader logic in `ingestion/readers.py` must call `json.loads(line)` for each non-empty line. Do not apply regex to raw log text. Each file becomes one `RawDocument`. Individual log entries become `ExtractedEntity` records. Since `span_id` is present in log entries but does not map to a destination column in `SUPPORT_TICKETS`, it must be extracted as an `ExtractedEntity` of type `span_id` with `entity_value = log_entry['span_id']` (with confidence=1.0).
 
 Duplicate detection is required — at least one log file is a byte-for-byte copy of another.
 
@@ -355,7 +355,7 @@ Official references:
 
 The system is structured as three distinct subprojects that communicate sequentially. Trainees must build them in order:
 
-1. **Subproject 1: Ingestion Pipeline** (Loads DB and raw files into SQL databases; exposes the `ingestor` CLI).
+1. **Subproject 1: Ingestion Pipeline** (Loads DB and raw files into SQL databases; exposes the `ingestion` CLI).
 2. **Subproject 2: Knowledge Preparation** (Cleans data, runs LangChain batch enrichment, and exports the Golden Dataset; exposes the `knowledge_prep` CLI).
 3. **Subproject 3: RAG + LangGraph Copilot** (Vector indexes the Golden Dataset, orchestrates Q&A via LangGraph, and evaluates results; exposes the `copilot` CLI & FastAPI).
 
@@ -461,16 +461,13 @@ Dependencies to include:
 - `sentence-transformers`
 - `fastapi`
 - `uvicorn`
-- `pytest`
-- `pytest-asyncio`
-- `ruff`
 
 Do not add paid provider packages unless they are optional.
 
 **Steps to build `pyproject.toml`:**
 1. Create the file at the project root.
 2. Add `[project]` section with `name = "sentineliq"` and `requires-python = ">=3.11"`.
-3. List every runtime dependency listed above under `dependencies = [...]`.
+3. List every runtime dependency listed above under `dependencies = [...]` (do NOT list development dependencies here).
 4. Add `[project.optional-dependencies]` with a `dev` group containing `pytest`, `pytest-asyncio`, and `ruff`; also add a `readers` group containing `pypdf` and `python-docx` for the file readers built in Subproject 1.
 5. Add `[tool.setuptools.packages.find]` with `include = ["utils*", "ingestion*", "knowledge_prep*", "copilot*"]` so all four top-level packages are discoverable.
 6. Add `[tool.ruff]` section: set `line-length = 120`, `target-version = "py311"`, enable `select = ["E", "F", "I"]`.
@@ -490,9 +487,9 @@ APP_ENV=local
 LOG_LEVEL=INFO
 
 DATABASE_BACKEND=oracle
-ORACLE_USER=TRAININGSPROGRAMM_SCHEMA_0H7C8
-ORACLE_PASSWORD=VL5JMY1BBSLY4ZAB4WXGY9IDt#MITS
-ORACLE_DSN=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCPS)(HOST=db.freesql.com)(PORT=2484))(CONNECT_DATA=(SERVICE_NAME=23ai_34ui2)))
+ORACLE_USER=your_oracle_user_here
+ORACLE_PASSWORD=your_oracle_password_here
+ORACLE_DSN=your_oracle_dsn_here
 
 DATA_RAW_DIR=data/raw
 DATA_PROCESSED_DIR=data/processed
@@ -507,8 +504,8 @@ LLM_PROVIDER=gemini
 GEMINI_API_KEY=
 GROQ_API_KEY=
 OPENROUTER_API_KEY=
-LLM_CHAT_MODEL=gemini-1.5-flash
-EMBED_MODEL=models/text-embedding-004
+LLM_CHAT_MODEL=gemini-2.5-flash
+EMBED_MODEL=models/text-embedding-005
 
 LANGSMITH_TRACING=false
 LANGSMITH_API_KEY=
@@ -535,7 +532,7 @@ This file provides orchestration and development commands. It's the central entr
 - `make lint`: Run `ruff check .`.
 - `make test`: Run `pytest`.
 - `make validate-data`: Run `python scripts/validate_raw_data.py`.
-- `make migrate`: Run `python -m utils.persistence.migrations`.
+- `make migrate`: Run `python -m utils.persistence`.
 - `make ingest-db`: Run `python -m ingestion.cli ingest-db` — reads `PROD_TICKETS`, `PROD_TICKET_COMMENTS`, `PROD_SERVICES`, and `API_SNAPSHOTS`; writes to `SUPPORT_TICKETS`. Always run this first.
 - `make ingest-files`: Run `python -m ingestion.cli ingest-files` — discovers and ingests all files under `data/raw/`.
 - `make ingest-api`: Run `python -m ingestion.cli ingest-api` — parses `API_SNAPSHOTS.PAYLOAD_JSON` and persists extracted records.
@@ -714,9 +711,11 @@ make validate-data
 Expected output:
 ```text
 Raw data validation completed
-Support tickets: [Count]
 Policy files: [Count]
-...
+Release notes: [Count]
+Log files: [Count]
+API snapshots: [Count]
+Bad-file examples: [Count]
 ```
 
 ### 3. Database Migration
@@ -860,7 +859,7 @@ Do not place secrets here.
 **Steps to build `utils/config.py` (Constants section):**
 1. Define `CANONICAL_SEVERITIES = ["critical", "high", "medium", "low"]` as a list.
 2. Define `SOURCE_TYPES = ["support_ticket", "policy", "release_note", "log", "api_snapshot", "architecture_doc"]`.
-3. Define `ALLOWED_EXTENSIONS = {".json", ".log", ".pdf", ".docx", ".txt", ".md"}`.
+3. Define `ALLOWED_EXTENSIONS = {".json", ".log", ".pdf", ".docx", ".md"}`.
 4. Define `PRODUCT_ALIAS_MAP` as a dict mapping alternate product area names to canonical names (e.g., `{"auth": "auth", "authentication": "auth", "identity": "auth"}`).
 5. Define `DEFAULT_QUALITY_THRESHOLDS = {"min_content_length": 50, "min_score_for_rag": 40}`.
 6. Define `DATASET_VERSION = "v001"` as the canonical version string. All components that construct golden dataset filenames (`golden_dataset_writer.py`, `indexer.py`, `export-golden` CLI handler) must read this constant instead of hardcoding `"v001"` as a string literal. This ensures a single change here propagates everywhere.
@@ -932,13 +931,7 @@ Rules:
 7. Create `ApiSnapshot(BaseModel)` with fields: `snapshot_id: str`, `run_id: str`, `source_name: str`, `endpoint: str`, `status_code: int`, `fetched_at: datetime`, `response_hash: str`, `payload_json: str`, `metadata_json: str`.
 8. Create `IngestionError(BaseModel)` with fields: `error_id: str`, `run_id: str`, `source_file_id: str | None`, `document_id: str | None`, `error_type: str`, `error_message: str`, `recoverable: bool`.
 9. Create `AuditEvent(BaseModel)` with fields: `event_id: str`, `entity_type: str`, `entity_id: str`, `event_type: str`, `event_message: str`, `created_at: datetime`.
-10. Create a placeholder comment for `KnowledgeDocument` — **do NOT add the import yet**. `knowledge_prep/langchain_prep/knowledge_schema.py` does not exist until Milestone 2 Step 16. Adding the import now causes an `ImportError` that will block all of Milestone 1 from running. Instead, add this comment block at the bottom of `models.py`:
-   ```python
-   # TODO (Milestone 2, Step 16): After knowledge_prep/langchain_prep/knowledge_schema.py
-   # is created, uncomment the line below to re-export KnowledgeDocument from this module.
-   # from knowledge_prep.langchain_prep.knowledge_schema import KnowledgeDocument
-   ```
-   Return here after completing Milestone 2 Step 16 and uncomment the import.
+10. Create `KnowledgeDocument(BaseModel)` with fields: `knowledge_id: str`, `source_document_id: str`, `source_type: SourceType`, `canonical_title: str`, `clean_content: str`, `summary: str | None = None`, `product_area: str | None`, `severity: str | None`, `authority_level: str = "standard"`, `freshness_score: float = 1.0`, `quality_score: int`, `quality_label: QualityLabel`, `sensitivity_tags: list[str] = []`, `prompt_injection_risk: bool = False`, `recommended_chunk_strategy: str = "recursive"`, `lineage: dict = {}`, `dataset_version: str`. Add a model validator: if `prompt_injection_risk` is True, `quality_label` must not be `READY_FOR_RAG`.
 11. Create `ChunkRecord(BaseModel)` with fields: `chunk_id: str`, `document_id: str`, `chunk_text: str`, `chunk_index: int`, `metadata: dict`, `embedding: list[float] | None = None`.
 12. Create `RetrievedChunk(BaseModel)` with fields: `chunk_id: str`, `document_id: str`, `chunk_text: str`, `chunk_index: int`, `metadata: dict`, `relevance_score: float`.
 13. Create `CopilotAnswer(BaseModel)` with fields: `answer_text: str`, `citations: list[str]`, `confidence: float`, `source_count: int`.
@@ -1010,7 +1003,7 @@ Rules:
 
 1. Write `calculate_content_hash(path: Path) -> str` first. This function is the project's **deduplication foundation**: if you hash a file and the same hash already exists in the database, the pipeline skips re-processing it. Use `hashlib.sha256()` and read in 8 KB chunks — never load large `.log` files entirely into memory.
 
-2. Write `detect_source_type(path: Path) -> SourceType`. Source type is determined purely from the **directory structure**, not the file extension. A file anywhere under `policies/` is a `POLICY`; under `docs/architecture/` or `docs/decisions/` it is an `ARCHITECTURE_DOC`. This is the contract: *directory = intent*. Return `SourceType.UNKNOWN` only when the path does not match any known directory. Note: `SUPPORT_TICKET` and `API_SNAPSHOT` are never assigned here — those types come exclusively from database ingestion.
+2. Write `detect_source_type(path: Path) -> SourceType`. Source type is determined purely from the **directory structure**, not the file extension. A file anywhere under `policies/` is a `POLICY`; under `docs/architecture/` or `docs/decisions/` it is an `ARCHITECTURE_DOC`. Any file directly at the root level of `docs/` (e.g. `data/raw/docs/`) or not under those subdirectories must return `SourceType.UNKNOWN`. This is the contract: *directory = intent*. Return `SourceType.UNKNOWN` only when the path does not match any known directory. Note: `SUPPORT_TICKET` and `API_SNAPSHOT` are never assigned here — those types come exclusively from database ingestion.
 
 3. Write `discover_files(root_dir: Path) -> list[SourceFile]`. Use `root_dir.rglob("*")` to walk everything. Apply two filters: skip hidden files (names starting with `.`), and for any file whose extension is not in `ALLOWED_EXTENSIONS`, create a `SourceFile` with `status=IngestionStatus.FAILED` and log a warning. For all other files, compute the content hash, detect the source type, collect file size and modified time, and build the `SourceFile` object.
 
@@ -1309,6 +1302,10 @@ Patterns:
 - `SEMVER_PATTERN`
 - `TICKET_ID_PATTERN`
 - `INCIDENT_ID_PATTERN`
+- `CHANGE_ID_PATTERN`
+- `RELEASE_TRAIN_PATTERN`
+- `RUNBOOK_URL_PATTERN`
+- `EVIDENCE_URL_PATTERN`
 - `ERROR_CODE_PATTERN`
 - `HTTP_STATUS_PATTERN`
 - `SEVERITY_PATTERN`
@@ -1330,11 +1327,15 @@ Rules:
 5. Define `SEMVER_PATTERN = re.compile(r"\bv?(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)\b")`.
 6. Define `TICKET_ID_PATTERN = re.compile(r"TICKET-(?:DUP-)?\d+")`.
 7. Define `INCIDENT_ID_PATTERN = re.compile(r"INC-\d{4}-\d{4}")`.
-8. Define `ERROR_CODE_PATTERN = re.compile(r"ERR_[A-Z_]+_\d{3}")`.
-9. Define `HTTP_STATUS_PATTERN = re.compile(r"\b[45]\d{2}\b")`.
-10. Define `SEVERITY_PATTERN = re.compile(r"\b(critical|high|medium|low)\b", re.IGNORECASE)`.
-11. Define `PROMPT_INJECTION_PATTERN = re.compile(r"(ignore\s+(all\s+)?previous\s+instructions|reveal\s+.*password|system\s+prompt)", re.IGNORECASE)`.
-12. Define `PHONE_PATTERN = re.compile(r"\+?\d[\d\s-]{8,15}")`.
+8. Define `CHANGE_ID_PATTERN = re.compile(r"CHG-\d{4}-(?:\d{2}-)?\d{3}")`.
+9. Define `RELEASE_TRAIN_PATTERN = re.compile(r"NXTEL-\d{4}-Q[1-4]")`.
+10. Define `RUNBOOK_URL_PATTERN = re.compile(r"https://runbooks\.asterion\.example/nexatel/[a-z0-9_]+/incident-response")`.
+11. Define `EVIDENCE_URL_PATTERN = re.compile(r"https?://[^\s<>\"]+/evidence/[a-zA-Z0-9_-]+")`.
+12. Define `ERROR_CODE_PATTERN = re.compile(r"ERR_[A-Z_]+_\d{3}")`.
+13. Define `HTTP_STATUS_PATTERN = re.compile(r"\b[45]\d{2}\b")`.
+14. Define `SEVERITY_PATTERN = re.compile(r"\b(critical|high|medium|low)\b", re.IGNORECASE)`.
+15. Define `PROMPT_INJECTION_PATTERN = re.compile(r"(ignore\s+(all\s+)?previous\s+instructions|reveal\s+.*password|system\s+prompt)", re.IGNORECASE)`.
+16. Define `PHONE_PATTERN = re.compile(r"\+?\d[\d\s-]{8,15}")`.
 13. All patterns must be compiled at module load time (top-level constants). Do NOT compile inside functions.
 14. **Key rule:** This file only DEFINES patterns. It must NOT contain any extraction logic — no `findall`, no `search`, no functions.
 
@@ -1539,7 +1540,7 @@ Rules:
 6. Optionally, create a `_migrations_applied` table to track which migrations have been run. Before running a migration, check if its filename is already in this table.
 7. Wrap in `try/except` — if a table already exists (`ORA-00955`), log a warning and continue.
 8. Print `"Applied migration {filename}"` for each successfully applied file.
-9. Add a `if __name__ == "__main__":` block at the bottom of the file so it can be invoked via `python -m utils.persistence.migrations`:
+9. Add a `if __name__ == "__main__":` block at the bottom of the file so it can be invoked via `python -m utils.persistence`:
    ```python
    if __name__ == "__main__":
        from utils.config.settings import get_settings
@@ -1552,9 +1553,11 @@ Rules:
 
 ### Repository Files
 
+**Note: All DB repositories described below must be consolidated and implemented within a single file named `ingestion/repositories.py` (instead of separate files).**
+
 Each repository contains only SQL operations for one area.
 
-#### `ingestion_run_repository.py`
+#### `repositories.py` (Ingestion Run Repository)
 
 Methods:
 
@@ -1572,7 +1575,7 @@ Methods:
 6. **Key rule:** Always use Oracle bind variables (`:1`, `:2`) — never f-string or string concatenation for SQL values.
 
 
-#### `source_file_repository.py`
+#### `repositories.py` (Source File Repository)
 
 Methods:
 
@@ -1587,7 +1590,7 @@ Methods:
 4. Write `get_by_path(self, path) -> SourceFile | None`: execute `SELECT * FROM source_files WHERE path = :1`, map to model or return `None`.
 
 
-#### `document_repository.py`
+#### `repositories.py` (Document Repository)
 
 Methods:
 
@@ -1606,7 +1609,7 @@ Methods:
 6. Write `get_document_with_entities(self, document_id)`: join `normalized_documents` with `extracted_entities` on `document_id`, return a dict with the document and its entity list.
 
 
-#### `entity_repository.py`
+#### `repositories.py` (Entity Repository)
 
 Methods:
 
@@ -1619,7 +1622,7 @@ Methods:
 3. Write `list_entities(self, document_id)`: `SELECT * FROM extracted_entities WHERE document_id = :1 ORDER BY start_offset`. Map rows to `ExtractedEntity` models.
 
 
-#### `api_snapshot_repository.py`
+#### `repositories.py` (API Snapshot Repository)
 
 Methods:
 
@@ -1632,7 +1635,7 @@ Methods:
 3. Write `get_latest_snapshot(self, source_name)`: `SELECT * FROM api_snapshots WHERE source_name = :1 ORDER BY fetched_at DESC FETCH FIRST 1 ROW ONLY`. Map to `ApiSnapshot` or return `None`.
 
 
-#### `error_repository.py`
+#### `repositories.py` (Error Repository)
 
 Methods:
 
@@ -1645,7 +1648,7 @@ Methods:
 3. Write `list_errors(self, run_id)`: `SELECT * FROM ingestion_errors WHERE run_id = :1 ORDER BY created_at`. Map rows to `IngestionError` models. This is used by the `status` CLI command to show what failed.
 
 
-#### `audit_repository.py`
+#### `repositories.py` (Audit Repository)
 
 Methods:
 
@@ -1901,7 +1904,7 @@ It must call:
 **Steps to build `ingestion/cli.py`:**
 1. Import `argparse`.
 2. Import `get_settings` from `utils.config.settings` and `configure_logging` from `utils.config.logging_config`.
-3. Create an `ArgumentParser(description="Ingestor CLI")` and add subcommands using `add_subparsers(dest="command")`.
+3. Create an `ArgumentParser(description="Ingestion CLI")` and add subcommands using `add_subparsers(dest="command")`.
 4. Implement subcommand handlers:
    - `scan`: call `file_discovery.discover_files(settings.data_raw_dir)`, print the count of files found grouped by extension.
    - `ingest-db`: instantiate `IngestionService`, call its `ingest_from_database()` method which reads `PROD_TICKETS`, joins `PROD_SERVICES`, enriches columns, and writes to `SUPPORT_TICKETS`. Print summary stats.
@@ -2160,10 +2163,8 @@ Fields:
 - `dataset_version`
 
 **Steps to build `knowledge_prep/enrichment.py` (Knowledge Schema section):**
-1. Import `pydantic.BaseModel` and enums from domain.
-2. Create `class KnowledgeDocument(BaseModel)` with all the fields listed above, using proper types: `knowledge_id: str`, `source_document_id: str`, `source_type: SourceType`, `canonical_title: str`, `clean_content: str`, `summary: str | None = None`, `product_area: str | None`, `severity: str | None`, `authority_level: str = "standard"`, `freshness_score: float = 1.0`, `quality_score: int`, `quality_label: QualityLabel`, `sensitivity_tags: list[str] = []`, `prompt_injection_risk: bool = False`, `recommended_chunk_strategy: str = "recursive"`, `lineage: dict = {}`, `dataset_version: str`.
-3. Add a validator for `quality_label`: if `prompt_injection_risk` is True, `quality_label` must not be `READY_FOR_RAG`.
-4. This model is the single contract between the knowledge prep layer and the RAG layer.
+1. Import `KnowledgeDocument` and `QualityLabel` from `utils.domain` (where it was defined in Milestone 1).
+2. The `KnowledgeDocument` model acts as the single contract between the knowledge prep layer and the RAG layer.
 
 
 ### `knowledge_prep/enrichment.py` (Document Mapper)
@@ -3480,7 +3481,6 @@ make validate-data
 Expected output:
 ```text
 Raw data validation completed
-Support tickets: [Count]
 Policy files: [Count]
 Release notes: [Count]
 Log files: [Count]
@@ -3553,7 +3553,7 @@ Build in this exact order, following these milestones:
 11. `ingestion/cli.py` — implement last
 
 ### Milestone 2: Data Quality & Golden Dataset (Weeks 3-4)
-12. `knowledge_prep/enrichment.py` (Knowledge Schema section) — defines `KnowledgeDocument`. **After creating this**, go back to `utils/domain.py` and uncomment the `TODO` import line for `KnowledgeDocument`.
+12. `knowledge_prep/enrichment.py` (Knowledge Schema section) — imports `KnowledgeDocument` from `utils.domain`.
 13. `knowledge_prep/quality_engine.py` — handles loading, profiling, cleaning, deduplication, and PII masking
 14. `knowledge_prep/quality_reports.py` — exports metric outputs
 15. `knowledge_prep/enrichment.py` (remaining logic) — mappers, prompts, enrichers, batch running, and golden dataset writing
