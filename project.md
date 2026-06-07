@@ -56,7 +56,7 @@ SentinelIQ reads from the live Oracle database and the file-based knowledge asse
 
 ### What Is Already In The Database
 
-The Oracle schema `TRAININGSPROGRAMM_SCHEMA_0H7C8` at `db.freesql.com` is **already populated**. These are the **source tables** the ingestion pipeline reads from. Do not treat them as targets.
+The Oracle schema `your_value_here` at `your_value_here` is **already populated**. These are the **source tables** the ingestion pipeline reads from. Do not treat them as targets.
 
 #### `PROD_TICKETS` (source)
 
@@ -326,7 +326,7 @@ Use these by default:
 | Need               | Tool                                            |
 | ------------------ | ----------------------------------------------- |
 | Language           | Python 3.11+                                    |
-| Database           | Oracle Database Cloud Instance (db.freesql.com) |
+| Database           | Oracle Database Cloud Instance (your_value_here) |
 | Oracle driver      | `python-oracledb`                             |
 | Data handling      | `pandas`, `pydantic`, `pyarrow`           |
 | AI framework       | LangChain                                       |
@@ -487,9 +487,9 @@ APP_ENV=local
 LOG_LEVEL=INFO
 
 DATABASE_BACKEND=oracle
-ORACLE_USER=your_oracle_user_here
-ORACLE_PASSWORD=your_oracle_password_here
-ORACLE_DSN=your_oracle_dsn_here
+ORACLE_USER=your_value_here
+ORACLE_PASSWORD=your_value_here
+ORACLE_DSN=your_value_here
 
 DATA_RAW_DIR=data/raw
 DATA_PROCESSED_DIR=data/processed
@@ -1512,7 +1512,7 @@ Rules:
 4. Write `get_connection(self)` as a context manager (`@contextmanager`): call `oracledb.connect(user=self.user, password=self.password, dsn=self.dsn)`, yield the connection, and close it in the `finally` block.
 5. Write `transaction(self)` as a context manager: get a connection, yield it, call `conn.commit()` on success, `conn.rollback()` on exception.
 6. Add a module-level `_db_instance: Database | None = None` and a `get_database(settings) -> Database` function that creates a singleton.
-7. Verify by calling `get_database(get_settings()).get_connection()` — it must connect to the remote Oracle at `db.freesql.com`.
+7. Verify by calling `get_database(get_settings()).get_connection()` — it must connect to the remote Oracle at `your_value_here`.
 8. **Key rule:** Every repository receives a `Database` instance via constructor injection. No other module may call `oracledb.connect()` directly.
 
 

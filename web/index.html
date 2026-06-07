@@ -103,7 +103,7 @@ This project focuses on bridging the gap between structured database content and
 </ul>
 <p>SentinelIQ reads from the live Oracle database and the file-based knowledge assets, enriches and normalises the data, builds a RAG knowledge base, and answers such questions with citations.</p>
 <hr>
-<h3 id="what-is-already-in-the-database">What Is Already In The Database</h3><p>The Oracle schema <code>TRAININGSPROGRAMM_SCHEMA_0H7C8</code> at <code>db.freesql.com</code> is <strong>already populated</strong>. These are the <strong>source tables</strong> the ingestion pipeline reads from. Do not treat them as targets.</p>
+<h3 id="what-is-already-in-the-database">What Is Already In The Database</h3><p>The Oracle schema <code>your_value_here</code> at <code>your_value_here</code> is <strong>already populated</strong>. These are the <strong>source tables</strong> the ingestion pipeline reads from. Do not treat them as targets.</p>
 <h4 id="prod_tickets-source"><code>PROD_TICKETS</code> (source)</h4><p>The primary support and incident ticket store for the NexaTel managed-services contract.</p>
 <p><strong>Schema (26 columns):</strong></p>
 <div class="table-scroll"><table>
@@ -621,7 +621,7 @@ A background process has deliberately corrupted approximately 4% of the operatio
 </tr>
 <tr>
 <td>Database</td>
-<td>Oracle Database Cloud Instance (db.freesql.com)</td>
+<td>Oracle Database Cloud Instance (your_value_here)</td>
 </tr>
 <tr>
 <td>Oracle driver</td>
@@ -800,9 +800,9 @@ A background process has deliberately corrupted approximately 4% of the operatio
 LOG_LEVEL=INFO
 
 DATABASE_BACKEND=oracle
-ORACLE_USER=your_oracle_user_here
-ORACLE_PASSWORD=your_oracle_password_here
-ORACLE_DSN=your_oracle_dsn_here
+ORACLE_USER=your_value_here
+ORACLE_PASSWORD=your_value_here
+ORACLE_DSN=your_value_here
 
 DATA_RAW_DIR=data/raw
 DATA_PROCESSED_DIR=data/processed
@@ -1690,7 +1690,7 @@ d. If validation fails, raise <code>LLMOutputValidationError</code> with the Pyd
 <li>Write <code>get_connection(self)</code> as a context manager (<code>@contextmanager</code>): call <code>oracledb.connect(user=self.user, password=self.password, dsn=self.dsn)</code>, yield the connection, and close it in the <code>finally</code> block.</li>
 <li>Write <code>transaction(self)</code> as a context manager: get a connection, yield it, call <code>conn.commit()</code> on success, <code>conn.rollback()</code> on exception.</li>
 <li>Add a module-level <code>_db_instance: Database | None = None</code> and a <code>get_database(settings) -&gt; Database</code> function that creates a singleton.</li>
-<li>Verify by calling <code>get_database(get_settings()).get_connection()</code> — it must connect to the remote Oracle at <code>db.freesql.com</code>.</li>
+<li>Verify by calling <code>get_database(get_settings()).get_connection()</code> — it must connect to the remote Oracle at <code>your_value_here</code>.</li>
 <li><strong>Key rule:</strong> Every repository receives a <code>Database</code> instance via constructor injection. No other module may call <code>oracledb.connect()</code> directly.</li>
 </ol>
 <h3 id="utilspersistencepy-migrations"><code>utils/persistence.py</code> (Migrations)</h3><p>Purpose:</p>
