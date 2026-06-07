@@ -6,7 +6,21 @@ const outputFile = 'index.html';
 
 const markdownContent = fs.readFileSync(markdownFile, 'utf8');
 
-const marked = new Marked({ gfm: true });
+const marked = new Marked({
+  gfm: true,
+  renderer: {
+    heading(token) {
+      const text = this.parser.parseInline(token.tokens);
+      const id = token.text
+        .toLowerCase()
+        .replace(/[^\w\s-]/g, '')
+        .trim()
+        .replace(/[-\s]+/g, '-');
+      return `<h${token.depth} id="${id}">${text}</h${token.depth}>`;
+    }
+  }
+});
+
 let htmlContent = marked.parse(markdownContent);
 
 // Wrap every <table> in a scrollable div so wide tables don't clip on small screens
@@ -38,11 +52,11 @@ const htmlTemplate = `<!DOCTYPE html>
                     <span class="dot bg-green"></span>
                 </div>
                 <div class="window-nav" id="main-nav">
-                    <a href="#">Home</a>
-                    <a href="#">About us</a>
-                    <a href="#">Documentation</a>
-                    <a href="#">Contact</a>
-                    <a href="#">Blog</a>
+                    <a href="#sentineliq">Home</a>
+                    <a href="#product-to-build">About us</a>
+                    <a href="#subproject-driven-architecture-and-implementation-flow">Documentation</a>
+                    <a href="#" id="nav-feedback">Feedback</a>
+                    <a href="#" id="nav-audit">Audit Log</a>
                 </div>
                 <div class="window-auth">
                     <a href="sentineliq_project_skeleton.zip" download class="btn-download">&#11015; Download Skeleton</a>
@@ -98,6 +112,52 @@ const htmlTemplate = `<!DOCTYPE html>
                 <button type="submit" class="modal-submit-btn">CONTINUE <span class="cursor-img">&#10148;</span></button>
             </form>
             <div id="modal-error" class="modal-error-msg" style="display: none;"></div>
+        </div>
+    </div>
+
+    <!-- Feedback Modal -->
+    <div id="feedback-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-box" style="transform: rotate(1deg);">
+            <h2 class="modal-title" style="color: var(--color-cyan);">FEEDBACK</h2>
+            <p class="modal-subtitle">We would love to hear your thoughts!</p>
+            <form id="feedback-form">
+                <textarea id="feedback-text" class="modal-input" placeholder="Your feedback..." style="height: 120px; resize: none;" required></textarea>
+                <div style="margin-bottom: 20px; font-family: 'Space Grotesk', sans-serif; font-weight: bold; text-align: left;">
+                    Rating: 
+                    <select id="feedback-rating" class="modal-input" style="width: auto; display: inline-block; margin-bottom: 0; padding: 5px 10px;">
+                        <option value="5">★★★★★ (5/5)</option>
+                        <option value="4">★★★★☆ (4/5)</option>
+                        <option value="3">★★★☆☆ (3/5)</option>
+                        <option value="2">★★☆☆☆ (2/5)</option>
+                        <option value="1">★☆☆☆☆ (1/5)</option>
+                    </select>
+                </div>
+                <button type="submit" class="modal-submit-btn" style="background-color: var(--color-cyan);">SUBMIT</button>
+                <button type="button" id="close-feedback-btn" class="modal-submit-btn" style="background-color: var(--color-red); margin-top: 10px;">CANCEL</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Audit Modal -->
+    <div id="audit-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-box" style="transform: rotate(-0.5deg); max-width: 600px;">
+            <h2 class="modal-title" style="color: var(--color-green);">AUDIT LOG</h2>
+            <p class="modal-subtitle">Recent pipeline validation and SRE sessions.</p>
+            <div class="table-scroll" style="max-height: 250px; overflow-y: auto; text-align: left; background: #fff; margin-bottom: 20px;">
+                <table style="width:100%; border-collapse:collapse; font-family:'Space Grotesk', sans-serif; font-size: 0.9rem;">
+                    <thead>
+                        <tr style="background:#eed5fc; border-bottom:2px solid #111;">
+                            <th style="padding:8px; border-right:2px solid #111;">Timestamp</th>
+                            <th style="padding:8px; border-right:2px solid #111;">Event</th>
+                            <th style="padding:8px;">User</th>
+                        </tr>
+                    </thead>
+                    <tbody id="audit-table-body">
+                        <!-- Audit rows populated dynamically -->
+                    </tbody>
+                </table>
+            </div>
+            <button type="button" id="close-audit-btn" class="modal-submit-btn" style="background-color: var(--color-green);">CLOSE</button>
         </div>
     </div>
 
@@ -281,13 +341,29 @@ const htmlTemplate = `<!DOCTYPE html>
                 t = t.replace(/ingestion_errors(_[a-z0-9A-Z]{1,10})?/g, 'ingestion_errors_' + L);
                 t = t.replace(/audit_events(_[a-z0-9A-Z]{1,10})?/g, 'audit_events_' + L);
                 node.nodeValue = t;
-            } else if (node.nodeName !== 'SCRIPT' && node.nodeName !== 'STYLE' && node.id !== 'login-modal') {
+            } else if (node.nodeName !== 'SCRIPT' && node.nodeName !== 'STYLE' && node.id !== 'login-modal' && node.id !== 'feedback-modal' && node.id !== 'audit-modal') {
                 for (let child of node.childNodes) walkTextNodes(child, suffix);
             }
         }
 
+        // ── Audit Log Utility ──
+        function logAuditEvent(eventText, userEmail) {
+            const auditEvents = JSON.parse(localStorage.getItem('sentineliq_audit_events') || '[]');
+            auditEvents.unshift({
+                timestamp: new Date().toISOString(),
+                event: eventText,
+                user: userEmail
+            });
+            localStorage.setItem('sentineliq_audit_events', JSON.stringify(auditEvents.slice(0, 50)));
+        }
+
         const savedEmail = localStorage.getItem('sentineliq_user_email');
-        if (savedEmail) { applySuffix(savedEmail); } else { modal.style.display = 'flex'; }
+        if (savedEmail) {
+            applySuffix(savedEmail);
+            logAuditEvent('SRE Session Restored (' + getSuffix(savedEmail) + ')', savedEmail);
+        } else {
+            modal.style.display = 'flex';
+        }
 
         form.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -295,6 +371,7 @@ const htmlTemplate = `<!DOCTYPE html>
             if (!email) { errorMsg.textContent = 'Please enter a valid email.'; errorMsg.style.display = 'block'; return; }
             localStorage.setItem('sentineliq_user_email', email);
             applySuffix(email);
+            logAuditEvent('SRE Session Started (' + getSuffix(email) + ')', email);
             modal.style.display = 'none';
         });
 
@@ -306,8 +383,114 @@ const htmlTemplate = `<!DOCTYPE html>
                 if (cur) input.value = cur;
             });
         }
+
+        // ── Feedback Modal Handlers ──
+        const feedbackModal = document.getElementById('feedback-modal');
+        const feedbackForm = document.getElementById('feedback-form');
+        const feedbackText = document.getElementById('feedback-text');
+        const feedbackRating = document.getElementById('feedback-rating');
+        const navFeedback = document.getElementById('nav-feedback');
+        const closeFeedbackBtn = document.getElementById('close-feedback-btn');
+
+        if (navFeedback) {
+            navFeedback.addEventListener('click', (e) => {
+                e.preventDefault();
+                feedbackModal.style.display = 'flex';
+            });
+        }
+
+        if (closeFeedbackBtn) {
+            closeFeedbackBtn.addEventListener('click', () => {
+                feedbackModal.style.display = 'none';
+            });
+        }
+
+        if (feedbackForm) {
+            feedbackForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const fbText = feedbackText.value.trim();
+                const fbRating = feedbackRating.value;
+                const email = localStorage.getItem('sentineliq_user_email') || 'anonymous';
+                
+                // Save feedback to localStorage
+                const feedbackList = JSON.parse(localStorage.getItem('sentineliq_feedbacks') || '[]');
+                feedbackList.push({
+                    timestamp: new Date().toISOString(),
+                    email: email,
+                    feedback: fbText,
+                    rating: fbRating
+                });
+                localStorage.setItem('sentineliq_feedbacks', JSON.stringify(feedbackList));
+
+                logAuditEvent('Submitted feedback (' + fbRating + '/5 stars)', email);
+
+                alert('Thank you for your feedback!');
+                feedbackText.value = '';
+                feedbackModal.style.display = 'none';
+            });
+        }
+
+        // ── Audit Modal Handlers ──
+        const auditModal = document.getElementById('audit-modal');
+        const navAudit = document.getElementById('nav-audit');
+        const closeAuditBtn = document.getElementById('close-audit-btn');
+        const auditTableBody = document.getElementById('audit-table-body');
+
+        function populateAuditTable() {
+            if (!auditTableBody) return;
+            auditTableBody.innerHTML = '';
+            
+            let events = JSON.parse(localStorage.getItem('sentineliq_audit_events') || '[]');
+            if (events.length === 0) {
+                const sysEmail = localStorage.getItem('sentineliq_user_email') || 'system';
+                events = [
+                    { timestamp: new Date(Date.now() - 3600000).toISOString(), event: 'Raw Data Directory Audit Completed (210 files)', user: 'system' },
+                    { timestamp: new Date(Date.now() - 7200000).toISOString(), event: 'Database Table Schema Validation', user: 'system' },
+                    { timestamp: new Date(Date.now() - 10800000).toISOString(), event: 'Regex Extractor incident entity pattern checks', user: 'system' }
+                ];
+                localStorage.setItem('sentineliq_audit_events', JSON.stringify(events));
+            }
+
+            events.forEach(e => {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid #111';
+                
+                const tdTime = document.createElement('td');
+                tdTime.style.padding = '8px';
+                tdTime.style.borderRight = '1px solid #111';
+                tdTime.textContent = new Date(e.timestamp).toLocaleString();
+                
+                const tdEvent = document.createElement('td');
+                tdEvent.style.padding = '8px';
+                tdEvent.style.borderRight = '1px solid #111';
+                tdEvent.textContent = e.event;
+                
+                const tdUser = document.createElement('td');
+                tdUser.style.padding = '8px';
+                tdUser.textContent = e.user;
+                
+                tr.appendChild(tdTime);
+                tr.appendChild(tdEvent);
+                tr.appendChild(tdUser);
+                auditTableBody.appendChild(tr);
+            });
+        }
+
+        if (navAudit) {
+            navAudit.addEventListener('click', (e) => {
+                e.preventDefault();
+                populateAuditTable();
+                auditModal.style.display = 'flex';
+            });
+        }
+
+        if (closeAuditBtn) {
+            closeAuditBtn.addEventListener('click', () => {
+                auditModal.style.display = 'none';
+            });
+        }
     });
-    <\/script>
+    </script>
 </body>
 </html>
 `;
